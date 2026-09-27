@@ -221,6 +221,20 @@ export async function getWorkoutSets(supabase: DB, workoutId: string): Promise<W
 }
 
 /**
+ * How many of the given sets are currently recorded as a personal
+ * record — used to show "N New PRs" on a finished workout's Share Card.
+ */
+export async function getPRCountForSets(supabase: DB, setIds: string[]): Promise<number> {
+  if (setIds.length === 0) return 0;
+  const { count, error } = await supabase
+    .from('personal_records')
+    .select('id', { count: 'exact', head: true })
+    .in('set_id', setIds);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
+/**
  * After inserting a set, check whether it's now the user's best at that
  * rep count for that exercise — true the instant the trigger's upsert
  * matches this exact set, which is what the UI treats as "new PR".

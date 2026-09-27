@@ -1,10 +1,14 @@
 import { notFound } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabaseClient';
-import { getWorkoutDetail } from '@/lib/queries';
+import { getPRCountForSets, getProfile, getWorkoutDetail } from '@/lib/queries';
 import { calculateVolume } from '@/lib/calculations';
+import ShareWorkoutButton from '@/components/ShareWorkoutButton';
 
 export default async function WorkoutDetailPage({ params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   let detail;
   try {
@@ -27,6 +31,15 @@ export default async function WorkoutDetailPage({ params }: { params: { id: stri
     ? Math.max(1, Math.round((new Date(workout.ended_at).getTime() - new Date(workout.started_at).getTime()) / 60000))
     : null;
 
+  // Only fetch what the Share Card needs when there's actually a
+  // finished workout to share (System Design §6.3 / Flow D).
+  const [prsHitCount, profile] = workout.ended_at
+    ? await Promise.all([
+        getPRCountForSets(supabase, sets.map((s) => s.id)),
+        user ? getProfile(supabase, user.id) : Promise.resolve(null),
+      ])
+    : [0, null];
+
   return (
     <main className="min-h-screen px-4 pb-28 pt-6">
       <h1 className="text-2xl font-bold">{workout.title}</h1>
@@ -36,6 +49,21 @@ export default async function WorkoutDetailPage({ params }: { params: { id: stri
         <StatTile label="Total Volume" value={`${totalVolume.toLocaleString()}`} />
         <StatTile label="Duration" value={durationMinutes ? `${durationMinutes} min` : 'In progress'} />
       </div>
+
+      {workout.ended_at && (
+        <div className="mb-6">
+          <ShareWorkoutButton
+            workoutTitle={workout.title}
+            date={workout.workout_date}
+            durationMinutes={durationMinutes ?? 0}
+            totalVolume={totalVolume}
+            unit={profile?.weight_unit ?? 'kg'}
+            exerciseCount={byExercise.size}
+            setCount={sets.length}
+            prsHitCount={prsHitCount}
+          />
+        </div>
+      )}
 
       {Array.from(byExercise.entries()).map(([exerciseId, exerciseSets]) => (
         <section key={exerciseId} className="mb-5">

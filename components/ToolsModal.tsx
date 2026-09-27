@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { calculatePlates, estimate1RM } from '@/lib/calculations';
 import type { WeightUnit } from '@/lib/database.types';
+import BottomSheet from './BottomSheet';
 
 /**
  * 1RM calculator + plate calculator — "one tap from any exercise, not
@@ -13,32 +14,27 @@ export default function ToolsModal({ unit, onClose }: { unit: WeightUnit; onClos
   const [tab, setTab] = useState<'1rm' | 'plates'>('1rm');
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/50" onClick={onClose}>
-      <div
-        className="rounded-t-card bg-surface p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex gap-2">
-          {(['1rm', 'plates'] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`flex-1 rounded-xl py-2 text-sm font-bold ${
-                tab === t ? 'bg-brand text-white' : 'bg-surface-raised text-neutral-400'
-              }`}
-            >
-              {t === '1rm' ? '1RM Calculator' : 'Plate Calculator'}
-            </button>
-          ))}
-        </div>
-
-        {tab === '1rm' ? <OneRepMaxCalculator unit={unit} /> : <PlateCalculator unit={unit} />}
-
-        <button onClick={onClose} className="mt-4 w-full rounded-xl border border-surface-border py-3 text-sm font-semibold">
-          Close
-        </button>
+    <BottomSheet onClose={onClose}>
+      <div className="mb-4 flex gap-2">
+        {(['1rm', 'plates'] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`flex-1 rounded-xl py-2 text-sm font-bold ${
+              tab === t ? 'bg-brand text-white' : 'bg-surface-raised text-neutral-400'
+            }`}
+          >
+            {t === '1rm' ? '1RM Calculator' : 'Plate Calculator'}
+          </button>
+        ))}
       </div>
-    </div>
+
+      {tab === '1rm' ? <OneRepMaxCalculator unit={unit} /> : <PlateCalculator unit={unit} />}
+
+      <button onClick={onClose} className="mt-4 w-full rounded-xl border border-surface-border py-3 text-sm font-semibold">
+        Close
+      </button>
+    </BottomSheet>
   );
 }
 

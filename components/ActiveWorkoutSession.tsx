@@ -4,9 +4,12 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Exercise, ExerciseCategory, WeightUnit } from '@/lib/database.types';
 import { useWorkoutSession } from '@/hooks/useWorkoutSession';
+import { estimate1RM } from '@/lib/calculations';
 import ExercisePicker from './ExercisePicker';
 import SetRow from './SetRow';
 import RestTimer from './RestTimer';
+import BottomSheet from './BottomSheet';
+import ShareCard from './ShareCard';
 
 /**
  * The core screen (System Design §6.2): current exercise name up top,
@@ -49,6 +52,12 @@ export default function ActiveWorkoutSession({
 
   const [pickerOpen, setPickerOpen] = useState(initialExercises.length === 0);
   const [elapsed, setElapsed] = useState(0);
+  const [prShare, setPrShare] = useState<{ exerciseName: string; weight: number; reps: number } | null>(null);
+
+  function openPRShare(exerciseName: string, weight: number | null, reps: number | null) {
+    if (weight == null || reps == null) return; // cardio sets have no weight/reps to share as a lifting PR
+    setPrShare({ exerciseName, weight, reps });
+  }
 
   useEffect(() => {
     // Runs once on mount to seed the session from a routine day. addExercise
@@ -67,7 +76,6 @@ export default function ActiveWorkoutSession({
     const id = setInterval(() => setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000))), 1000);
     return () => clearInterval(id);
   }, [startedAt]);
-
 
   const active = sessionExercises.find((e) => e.exercise.id === activeExerciseId);
 
@@ -118,6 +126,7 @@ export default function ActiveWorkoutSession({
                   comment={set.comment}
                   isPR={set.isPR}
                   previousPerformance={active.lastPerformance}
+                  onPRTap={() => openPRShare(active.exercise.name, set.weight, set.reps)}
                 />
               ))}
               {active.sets.length === 0 && (
@@ -169,10 +178,35 @@ export default function ActiveWorkoutSession({
       {prToast && (
         <div className="fixed inset-x-4 top-[calc(env(safe-area-inset-top)+1rem)] z-50 rounded-2xl bg-brand px-4 py-3 text-white shadow-lg">
           <p className="font-bold">🏆 New PR on {prToast.exerciseName}!</p>
-          <button onClick={dismissPRToast} className="mt-1 text-sm underline">
-            Dismiss
-          </button>
+          <div className="mt-1 flex gap-3 text-sm">
+            <button
+              onClick={() => {
+                openPRShare(prToast.exerciseName, prToast.pr.weight, prToast.pr.reps);
+                dismissPRToast();
+              }}
+              className="font-bold underline"
+            >
+              Share
+            </button>
+            <button onClick={dismissPRToast} className="underline">
+              Dismiss
+            </button>
+          </div>
         </div>
+      )}
+
+      {prShare && (
+        <BottomSheet onClose={() => setPrShare(null)}>
+          <ShareCard
+            mode="pr"
+            exerciseName={prShare.exerciseName}
+            weight={prShare.weight}
+            unit={weightUnit}
+            reps={prShare.reps}
+            estimated1RM={estimate1RM(prShare.weight, prShare.reps)}
+            onShared={() => setPrShare(null)}
+          />
+        </BottomSheet>
       )}
 
       {pickerOpen && (
