@@ -29,43 +29,65 @@ export default function RoutineEditor({
   const router = useRouter();
   const [newDayName, setNewDayName] = useState('');
   const [pickerForDayId, setPickerForDayId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function handleAddDay(e: React.FormEvent) {
     e.preventDefault();
     if (!newDayName.trim()) return;
+    setError(null);
     startTransition(async () => {
-      await addRoutineDayAction(routine.id, newDayName.trim(), days.length);
-      setNewDayName('');
-      router.refresh();
+      try {
+        await addRoutineDayAction(routine.id, newDayName.trim(), days.length);
+        setNewDayName('');
+        router.refresh();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Could not add day — check your connection.');
+      }
     });
   }
 
   function handleDeleteDay(dayId: string) {
+    setError(null);
     startTransition(async () => {
-      await deleteRoutineDayAction(routine.id, dayId);
-      router.refresh();
+      try {
+        await deleteRoutineDayAction(routine.id, dayId);
+        router.refresh();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Could not remove day — check your connection.');
+      }
     });
   }
 
   function handleDeleteRoutine() {
+    setError(null);
     startTransition(async () => {
-      await deleteRoutineAction(routine.id);
-      router.push('/routines');
+      try {
+        await deleteRoutineAction(routine.id);
+        router.push('/routines');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Could not delete routine — check your connection.');
+      }
     });
   }
 
   function handleAddExerciseToDay(exercise: Exercise) {
     if (!pickerForDayId) return;
     const day = days.find((d) => d.id === pickerForDayId);
+    setError(null);
     startTransition(async () => {
-      await addRoutineExerciseAction(routine.id, {
-        routine_day_id: pickerForDayId,
-        exercise_id: exercise.id,
-        exercise_order: day?.exercises.length ?? 0,
-      });
-      setPickerForDayId(null);
-      router.refresh();
+      try {
+        await addRoutineExerciseAction(routine.id, {
+          routine_day_id: pickerForDayId,
+          exercise_id: exercise.id,
+          exercise_order: day?.exercises.length ?? 0,
+        });
+        setPickerForDayId(null);
+        router.refresh();
+      } catch (err) {
+        setPickerForDayId(null);
+        setError(err instanceof Error ? err.message : 'Could not add exercise — check your connection.');
+      }
     });
   }
 
@@ -77,6 +99,8 @@ export default function RoutineEditor({
           Delete routine
         </button>
       </div>
+
+      {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
 
       <div className="mb-6 space-y-3">
         {days.map((day) => (

@@ -4,11 +4,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const TABS = [
-  { href: '/dashboard', label: 'Dashboard', icon: '🏠' },
-  { href: '/history', label: 'History', icon: '📅' },
+  { href: '/dashboard', label: 'Dashboard', icon: '🏠', primary: false },
+  { href: '/history', label: 'History', icon: '📅', primary: false },
   { href: '/workout/new', label: 'Log', icon: '➕', primary: true },
-  { href: '/exercises', label: 'Exercises', icon: '💪' },
-  { href: '/profile', label: 'Profile', icon: '⚙️' },
+  { href: '/exercises', label: 'Exercises', icon: '💪', primary: false },
+  { href: '/profile', label: 'Profile', icon: '⚙️', primary: false },
 ] as const;
 
 export default function BottomNav() {

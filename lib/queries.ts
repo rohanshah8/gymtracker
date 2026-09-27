@@ -28,6 +28,7 @@ import type {
   WorkoutSet,
 } from './database.types';
 import { calculateStreak, calculateVolume, estimate1RM } from './calculations';
+import type { VolumeSet } from './calculations';
 
 type DB = SupabaseClient;
 
@@ -297,7 +298,7 @@ export async function getWorkoutDetail(supabase: DB, workoutId: string): Promise
     .select('*, exercise:exercises(id, name, exercise_type)')
     .eq('workout_id', workoutId)
     .order('set_index', { ascending: true });
-  const sets = unwrap(setsRes as any);
+  const sets = unwrap(setsRes as any) as WorkoutDetail['sets'];
 
   return { workout, sets };
 }
@@ -370,7 +371,7 @@ export async function getDashboardStats(supabase: DB, userId: string): Promise<D
         'workout_id',
         weekWorkouts.map((w) => w.id)
       );
-    const sets = unwrap(setsRes as any);
+    const sets = unwrap(setsRes as any) as VolumeSet[];
     volumeThisWeek = calculateVolume(sets);
   }
 

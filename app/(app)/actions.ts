@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createSupabaseServerClient } from '@/lib/supabaseClient';
 import * as queries from '@/lib/queries';
-import type { NewExercise, NewSet, NewWorkout } from '@/lib/database.types';
+import type { NewExercise, NewWorkout } from '@/lib/database.types';
 
 async function requireUser() {
   const supabase = createSupabaseServerClient();
@@ -33,14 +33,6 @@ export async function createWorkoutAction(input: NewWorkout) {
   return queries.createWorkout(supabase, user.id, input);
 }
 
-/** Logs a set and reports back whether it was a new PR, in one round trip. */
-export async function logSetAction(input: NewSet) {
-  const { supabase, user } = await requireUser();
-  const set = await queries.logSet(supabase, input);
-  const pr = await queries.wasPersonalRecord(supabase, user.id, input.exercise_id, set.id);
-  return { set, pr };
-}
-
 export async function updateSetAction(
   setId: string,
   patch: Parameters<typeof queries.updateSet>[2]
@@ -60,11 +52,6 @@ export async function finishWorkoutAction(workoutId: string) {
   revalidatePath('/history');
   revalidatePath('/dashboard');
   return workout;
-}
-
-export async function getLastPerformanceAction(exerciseId: string) {
-  const { supabase, user } = await requireUser();
-  return queries.getLastPerformance(supabase, user.id, exerciseId);
 }
 
 export async function getWorkoutDatesInRangeAction(startDate: string, endDate: string) {

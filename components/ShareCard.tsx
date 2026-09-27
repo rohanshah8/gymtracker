@@ -81,7 +81,8 @@ function MiniSparkline({ points }: { points: HistoryPoint[] }) {
   });
 
   const lastX = width;
-  const lastY = height - ((weights[weights.length - 1] - min) / range) * height;
+  // Guarded by the length check above — there's always a last point here.
+  const lastY = height - ((weights[weights.length - 1]! - min) / range) * height;
 
   return (
     <svg width={width} height={height} className="overflow-visible">

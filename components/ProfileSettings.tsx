@@ -9,15 +9,23 @@ import SignOutButton from './SignOutButton';
 export default function ProfileSettings({ profile, email }: { profile: Profile; email: string }) {
   const router = useRouter();
   const [unit, setUnit] = useState<WeightUnit>(profile.weight_unit);
+  const [unitError, setUnitError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
   function handleUnitChange(nextUnit: WeightUnit) {
+    const previousUnit = unit;
     setUnit(nextUnit);
+    setUnitError(null);
     startTransition(async () => {
-      await updateProfileAction({ weight_unit: nextUnit });
-      router.refresh();
+      try {
+        await updateProfileAction({ weight_unit: nextUnit });
+        router.refresh();
+      } catch (err) {
+        setUnit(previousUnit); // roll back the optimistic toggle
+        setUnitError(err instanceof Error ? err.message : 'Could not save — check your connection.');
+      }
     });
   }
 
@@ -63,6 +71,7 @@ export default function ProfileSettings({ profile, email }: { profile: Profile; 
             </button>
           ))}
         </div>
+        {unitError && <p className="mt-2 text-sm text-red-400">{unitError}</p>}
       </div>
 
       <div>

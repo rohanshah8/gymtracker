@@ -48,11 +48,14 @@ export default function ActiveWorkoutSession({
     prToast,
     dismissPRToast,
     isPending,
+    isOnline,
+    pendingSyncCount,
   } = useWorkoutSession(workoutId);
 
   const [pickerOpen, setPickerOpen] = useState(initialExercises.length === 0);
   const [elapsed, setElapsed] = useState(0);
   const [prShare, setPrShare] = useState<{ exerciseName: string; weight: number; reps: number } | null>(null);
+  const [finishError, setFinishError] = useState<string | null>(null);
 
   function openPRShare(exerciseName: string, weight: number | null, reps: number | null) {
     if (weight == null || reps == null) return; // cardio sets have no weight/reps to share as a lifting PR
@@ -80,8 +83,16 @@ export default function ActiveWorkoutSession({
   const active = sessionExercises.find((e) => e.exercise.id === activeExerciseId);
 
   async function handleFinish() {
-    await finish();
-    router.push(`/workout/${workoutId}`);
+    setFinishError(null);
+    try {
+      await finish();
+      router.push(`/workout/${workoutId}`);
+    } catch {
+      // Most likely offline right at the moment of finishing — sets
+      // already logged are safe (queued or synced); only "Finish" itself
+      // needs a retry once signal is back.
+      setFinishError("Couldn't finish the workout — check your connection and try again.");
+    }
   }
 
   const minutes = Math.floor(elapsed / 60);
@@ -90,9 +101,21 @@ export default function ActiveWorkoutSession({
   return (
     <div className="flex min-h-screen flex-col">
       <header className="flex items-center justify-between border-b border-surface-border px-4 py-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
-        <span className="text-lg font-bold tabular-nums text-neutral-300">
-          {minutes}:{seconds.toString().padStart(2, '0')}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-lg font-bold tabular-nums text-neutral-300">
+            {minutes}:{seconds.toString().padStart(2, '0')}
+          </span>
+          {!isOnline && (
+            <span className="rounded-full bg-amber-500/20 px-2 py-1 text-[11px] font-bold uppercase text-amber-400">
+              Offline — will sync
+            </span>
+          )}
+          {isOnline && pendingSyncCount > 0 && (
+            <span className="rounded-full bg-neutral-700 px-2 py-1 text-[11px] font-bold uppercase text-neutral-300">
+              Syncing {pendingSyncCount}…
+            </span>
+          )}
+        </div>
         <button
           onClick={handleFinish}
           disabled={isPending}
@@ -101,6 +124,12 @@ export default function ActiveWorkoutSession({
           Finish
         </button>
       </header>
+
+      {finishError && (
+        <p className="border-b border-surface-border bg-red-500/10 px-4 py-2 text-center text-sm text-red-400">
+          {finishError}
+        </p>
+      )}
 
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-64">
         {active ? (
@@ -160,6 +189,8 @@ export default function ActiveWorkoutSession({
         )}
       </div>
 
+      <RestTimer trigger={restTimerTrigger} />
+
       {active && (
         <SetRow
           mode="input"
@@ -172,8 +203,6 @@ export default function ActiveWorkoutSession({
           onLogSet={(input) => logSet(active.exercise.id, input)}
         />
       )}
-
-      <RestTimer trigger={restTimerTrigger} />
 
       {prToast && (
         <div className="fixed inset-x-4 top-[calc(env(safe-area-inset-top)+1rem)] z-50 rounded-2xl bg-brand px-4 py-3 text-white shadow-lg">

@@ -100,6 +100,9 @@ function addDays(date: Date, days: number): Date {
 /** Parses a 'YYYY-MM-DD' string as a local-midnight Date (no UTC shift). */
 function parseLocalDate(dateStr: string): Date {
   const [y, m, d] = dateStr.split('-').map(Number);
+  if (y === undefined || m === undefined || d === undefined) {
+    throw new Error(`Invalid date string: ${dateStr}`);
+  }
   return new Date(y, m - 1, d);
 }
 

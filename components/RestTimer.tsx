@@ -76,25 +76,23 @@ export default function RestTimer({
   const secs = remaining % 60;
 
   return (
-    <div className="fixed inset-x-0 bottom-[9rem] z-40 flex justify-center px-4">
-      <div className="flex w-full max-w-md items-center justify-between rounded-2xl bg-brand px-5 py-3 text-white shadow-lg">
-        <span className="text-lg font-bold tabular-nums">
-          {minutes}:{secs.toString().padStart(2, '0')}
-        </span>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setRemaining((r) => r + 30)}
-            className="rounded-lg bg-black/20 px-3 py-1 text-sm font-semibold"
-          >
-            +30s
-          </button>
-          <button
-            onClick={() => setRunning(false)}
-            className="rounded-lg bg-black/20 px-3 py-1 text-sm font-semibold"
-          >
-            Skip
-          </button>
-        </div>
+    <div className="mx-4 mb-2 flex items-center justify-between rounded-2xl bg-brand px-5 py-3 text-white shadow-lg">
+      <span className="text-lg font-bold tabular-nums">
+        {minutes}:{secs.toString().padStart(2, '0')}
+      </span>
+      <div className="flex gap-2">
+        <button
+          onClick={() => setRemaining((r) => r + 30)}
+          className="rounded-lg bg-black/20 px-3 py-1 text-sm font-semibold"
+        >
+          +30s
+        </button>
+        <button
+          onClick={() => setRunning(false)}
+          className="rounded-lg bg-black/20 px-3 py-1 text-sm font-semibold"
+        >
+          Skip
+        </button>
       </div>
     </div>
   );
