@@ -1,25 +1,36 @@
 import { createSupabaseServerClient } from '@/lib/supabaseClient';
-import { getExercises } from '@/lib/queries';
+import { getExerciseCategories, getExercises, getProfile, getRecentExerciseIds } from '@/lib/queries';
 import { createWorkoutAction } from '@/app/(app)/actions';
-import WorkoutLoggerRough from '@/components/WorkoutLoggerRough';
+import ActiveWorkoutSession from '@/components/ActiveWorkoutSession';
 
-// Phase 2 placeholder: proves the data layer (create a workout, log real
-// sets, see personal_records populate) with a deliberately unstyled UI.
-// Phase 3 replaces this with the real 2-tap logging screen — see
-// GymTracker_Claude_Build_Sequence.md Phase 3.
+// The real core screen (System Design §6.2), rebuilt from the Phase 2
+// rough version per Phase 3 of the build sequence: pre-filled weight/reps,
+// thumb-zone "Log Set" button, rest timer, warm-up toggle, per-set
+// comment, and an instant PR badge — see components/ActiveWorkoutSession.
 export default async function NewWorkoutPage() {
   const supabase = createSupabaseServerClient();
-  const exercises = await getExercises(supabase);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  // Known Phase-2 simplification: a workout row is created as soon as this
-  // page loads. Abandoning the page without logging anything leaves an
-  // empty workout row — acceptable for now, revisited if it matters once
-  // real usage shows how often that happens.
-  const workout = await createWorkoutAction({ title: 'Workout' });
+  const [exercises, categories, recentIds, profile, workout] = await Promise.all([
+    getExercises(supabase),
+    getExerciseCategories(supabase),
+    user ? getRecentExerciseIds(supabase, user.id) : Promise.resolve([]),
+    user ? getProfile(supabase, user.id) : Promise.resolve(null),
+    // Known simplification carried over from Phase 2: a workout row is
+    // created as soon as this page loads.
+    createWorkoutAction({ title: 'Workout' }),
+  ]);
 
   return (
-    <main className="min-h-screen px-4 pb-28 pt-6">
-      <WorkoutLoggerRough workoutId={workout.id} exercises={exercises} />
-    </main>
+    <ActiveWorkoutSession
+      workoutId={workout.id}
+      startedAt={workout.started_at}
+      exercises={exercises}
+      categories={categories}
+      recentIds={recentIds}
+      weightUnit={profile?.weight_unit ?? 'kg'}
+    />
   );
 }

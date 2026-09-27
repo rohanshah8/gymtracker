@@ -19,6 +19,7 @@ import type {
   NewSet,
   NewWorkout,
   PersonalRecord,
+  Profile,
   Workout,
   WorkoutSet,
 } from './database.types';
@@ -299,3 +300,22 @@ export async function getWorkoutDatesInRange(
   const rows = unwrap(res as any) as Array<{ workout_date: string }>;
   return Array.from(new Set(rows.map((r) => r.workout_date)));
 }
+
+// ============================================
+// Profile
+// ============================================
+
+export async function getProfile(supabase: DB, userId: string): Promise<Profile> {
+  const res = await supabase.from('profiles').select('*').eq('id', userId).single();
+  return unwrap(res as any);
+}
+
+export async function updateProfile(
+  supabase: DB,
+  userId: string,
+  patch: Partial<Pick<Profile, 'display_name' | 'weight_unit'>>
+): Promise<Profile> {
+  const res = await supabase.from('profiles').update(patch).eq('id', userId).select('*').single();
+  return unwrap(res as any);
+}
+
