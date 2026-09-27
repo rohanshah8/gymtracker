@@ -65,7 +65,7 @@ export function calculateStreak(workoutDatesISO: string[], today: Date = new Dat
   }
 
   let streak = 1;
-  let cursor = new Date(`${uniqueDays[0]}T00:00:00Z`);
+  let cursor = parseLocalDate(uniqueDays[0]);
 
   for (let i = 1; i < uniqueDays.length; i++) {
     const expected = toDateOnlyString(addDays(cursor, -1));
@@ -80,14 +80,27 @@ export function calculateStreak(workoutDatesISO: string[], today: Date = new Dat
   return streak;
 }
 
+// Deliberately NOT using toISOString() here: that converts through UTC,
+// which shifts the calendar day for anyone not near UTC (e.g. a workout
+// logged at 11pm local time could register as "tomorrow" or vice versa).
+// These build the date string from local Y/M/D components instead.
 function toDateOnlyString(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function addDays(date: Date, days: number): Date {
   const copy = new Date(date);
-  copy.setUTCDate(copy.getUTCDate() + days);
+  copy.setDate(copy.getDate() + days);
   return copy;
+}
+
+/** Parses a 'YYYY-MM-DD' string as a local-midnight Date (no UTC shift). */
+function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
 }
 
 // ---------- Plate calculator ----------

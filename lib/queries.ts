@@ -16,13 +16,18 @@ import type {
   Exercise,
   ExerciseCategory,
   NewExercise,
+  NewRoutineExercise,
   NewSet,
   NewWorkout,
   PersonalRecord,
   Profile,
+  Routine,
+  RoutineDay,
+  RoutineExercise,
   Workout,
   WorkoutSet,
 } from './database.types';
+import { calculateStreak, calculateVolume, estimate1RM } from './calculations';
 
 type DB = SupabaseClient;
 
@@ -318,4 +323,277 @@ export async function updateProfile(
   const res = await supabase.from('profiles').update(patch).eq('id', userId).select('*').single();
   return unwrap(res as any);
 }
+
+// ============================================
+// Dashboard stats
+// ============================================
+
+export interface DashboardStats {
+  workoutsThisWeek: number;
+  volumeThisWeek: number;
+  currentStreak: number;
+}
+
+export async function getDashboardStats(supabase: DB, userId: string): Promise<DashboardStats> {
+  const now = new Date();
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - now.getDay());
+  const startOfWeekStr = startOfWeek.toISOString().slice(0, 10);
+
+  const weekRes = await supabase
+    .from('workouts')
+    .select('id')
+    .eq('user_id', userId)
+    .gte('workout_date', startOfWeekStr);
+  const weekWorkouts = unwrap(weekRes as any) as Array<{ id: string }>;
+
+  let volumeThisWeek = 0;
+  if (weekWorkouts.length > 0) {
+    const setsRes = await supabase
+      .from('sets')
+      .select('weight, reps, is_warmup')
+      .in(
+        'workout_id',
+        weekWorkouts.map((w) => w.id)
+      );
+    const sets = unwrap(setsRes as any);
+    volumeThisWeek = calculateVolume(sets);
+  }
+
+  // Streak needs a longer lookback than just the current week.
+  const recentRes = await supabase
+    .from('workouts')
+    .select('workout_date')
+    .eq('user_id', userId)
+    .order('workout_date', { ascending: false })
+    .limit(120);
+  const recentWorkouts = unwrap(recentRes as any) as Array<{ workout_date: string }>;
+
+  return {
+    workoutsThisWeek: weekWorkouts.length,
+    volumeThisWeek,
+    currentStreak: calculateStreak(recentWorkouts.map((w) => w.workout_date)),
+  };
+}
+
+// ============================================
+// Per-exercise progress + PR history (Exercises/[id])
+// ============================================
+
+export interface ProgressPoint {
+  date: string;
+  topWeight: number;
+  estimated1RM: number;
+}
+
+/** One point per calendar day trained: that day's top weight + best estimated 1RM, for ProgressChart. */
+export async function getExerciseProgress(
+  supabase: DB,
+  userId: string,
+  exerciseId: string
+): Promise<ProgressPoint[]> {
+  const res = await supabase
+    .from('sets')
+    .select('weight, reps, is_warmup, workouts!inner(user_id, workout_date)')
+    .eq('exercise_id', exerciseId)
+    .eq('workouts.user_id', userId)
+    .eq('is_warmup', false)
+    .not('weight', 'is', null)
+    .not('reps', 'is', null);
+  const rows = unwrap(res as any) as Array<{
+    weight: number;
+    reps: number;
+    workouts: { workout_date: string };
+  }>;
+
+  const byDate = new Map<string, ProgressPoint>();
+  for (const row of rows) {
+    const date = row.workouts.workout_date;
+    const oneRM = estimate1RM(row.weight, row.reps);
+    const existing = byDate.get(date);
+    if (!existing) {
+      byDate.set(date, { date, topWeight: row.weight, estimated1RM: oneRM });
+    } else {
+      existing.topWeight = Math.max(existing.topWeight, row.weight);
+      existing.estimated1RM = Math.max(existing.estimated1RM, oneRM);
+    }
+  }
+
+  return Array.from(byDate.values()).sort((a, b) => (a.date < b.date ? -1 : 1));
+}
+
+export async function getPersonalRecordsForExercise(
+  supabase: DB,
+  userId: string,
+  exerciseId: string
+): Promise<PersonalRecord[]> {
+  const res = await supabase
+    .from('personal_records')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('exercise_id', exerciseId)
+    .order('reps', { ascending: true });
+  return unwrap(res as any);
+}
+
+// ============================================
+// Routines
+// ============================================
+
+export interface RoutineDayDetail extends RoutineDay {
+  exercises: Array<RoutineExercise & { exercise: Exercise }>;
+}
+
+export interface RoutineDetail {
+  routine: Routine;
+  days: RoutineDayDetail[];
+}
+
+export async function getRoutines(supabase: DB, userId: string): Promise<Routine[]> {
+  const res = await supabase
+    .from('routines')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  return unwrap(res as any);
+}
+
+export async function createRoutine(supabase: DB, userId: string, name: string): Promise<Routine> {
+  const res = await supabase.from('routines').insert({ user_id: userId, name }).select('*').single();
+  return unwrap(res as any);
+}
+
+export async function deleteRoutine(supabase: DB, routineId: string): Promise<void> {
+  const { error } = await supabase.from('routines').delete().eq('id', routineId);
+  if (error) throw new Error(error.message);
+}
+
+export async function getRoutineDetail(supabase: DB, routineId: string): Promise<RoutineDetail> {
+  const routineRes = await supabase.from('routines').select('*').eq('id', routineId).single();
+  const routine = unwrap(routineRes as any) as Routine;
+
+  const daysRes = await supabase
+    .from('routine_days')
+    .select('*, routine_exercises(*, exercise:exercises(*))')
+    .eq('routine_id', routineId)
+    .order('day_order', { ascending: true });
+  const daysRaw = unwrap(daysRes as any) as any[];
+
+  const days: RoutineDayDetail[] = daysRaw.map((d) => ({
+    id: d.id,
+    routine_id: d.routine_id,
+    day_name: d.day_name,
+    day_order: d.day_order,
+    exercises: (d.routine_exercises ?? [])
+      .slice()
+      .sort((a: any, b: any) => a.exercise_order - b.exercise_order)
+      .map((re: any) => ({ ...re, exercise: re.exercise })),
+  }));
+
+  return { routine, days };
+}
+
+export async function addRoutineDay(
+  supabase: DB,
+  routineId: string,
+  dayName: string,
+  dayOrder: number
+): Promise<RoutineDay> {
+  const res = await supabase
+    .from('routine_days')
+    .insert({ routine_id: routineId, day_name: dayName, day_order: dayOrder })
+    .select('*')
+    .single();
+  return unwrap(res as any);
+}
+
+export async function deleteRoutineDay(supabase: DB, dayId: string): Promise<void> {
+  const { error } = await supabase.from('routine_days').delete().eq('id', dayId);
+  if (error) throw new Error(error.message);
+}
+
+export async function addRoutineExercise(supabase: DB, input: NewRoutineExercise): Promise<RoutineExercise> {
+  const res = await supabase.from('routine_exercises').insert(input).select('*').single();
+  return unwrap(res as any);
+}
+
+export async function removeRoutineExercise(supabase: DB, id: string): Promise<void> {
+  const { error } = await supabase.from('routine_exercises').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * "Log All": creates a workout tagged with this routine day and returns
+ * its exercises in order, ready to pre-populate the active session.
+ */
+export async function startWorkoutFromRoutineDay(
+  supabase: DB,
+  userId: string,
+  routineDayId: string
+): Promise<{ workout: Workout; exercises: Exercise[] }> {
+  const dayRes = await supabase
+    .from('routine_days')
+    .select('day_name, routine_exercises(exercise_order, exercise:exercises(*))')
+    .eq('id', routineDayId)
+    .single();
+  const day = unwrap(dayRes as any) as any;
+
+  const workout = await createWorkout(supabase, userId, {
+    title: day.day_name,
+    source_routine_day_id: routineDayId,
+  });
+
+  const exercises = (day.routine_exercises ?? [])
+    .slice()
+    .sort((a: any, b: any) => a.exercise_order - b.exercise_order)
+    .map((re: any) => re.exercise as Exercise);
+
+  return { workout, exercises };
+}
+
+// ============================================
+// CSV export (Profile — "data ownership, no lock-in")
+// ============================================
+
+export interface ExportRow {
+  workout_date: string;
+  workout_title: string;
+  exercise_name: string;
+  set_index: number;
+  weight: number | null;
+  reps: number | null;
+  distance: number | null;
+  duration_seconds: number | null;
+  is_warmup: boolean;
+  comment: string | null;
+}
+
+export async function getAllSetsForExport(supabase: DB, userId: string): Promise<ExportRow[]> {
+  const res = await supabase
+    .from('sets')
+    .select(
+      'set_index, weight, reps, distance, duration_seconds, is_warmup, comment, created_at, ' +
+        'exercise:exercises(name), workouts!inner(user_id, workout_date, title)'
+    )
+    .eq('workouts.user_id', userId)
+    // Ordering by the base table's own created_at (when the set was
+    // logged) rather than a joined column — simpler and still produces
+    // a sensible chronological export.
+    .order('created_at', { ascending: true });
+
+  const rows = unwrap(res as any) as any[];
+  return rows.map((r) => ({
+    workout_date: r.workouts.workout_date,
+    workout_title: r.workouts.title,
+    exercise_name: r.exercise.name,
+    set_index: r.set_index,
+    weight: r.weight,
+    reps: r.reps,
+    distance: r.distance,
+    duration_seconds: r.duration_seconds,
+    is_warmup: r.is_warmup,
+    comment: r.comment,
+  }));
+}
+
 

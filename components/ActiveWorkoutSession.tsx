@@ -22,6 +22,7 @@ export default function ActiveWorkoutSession({
   categories,
   recentIds,
   weightUnit,
+  initialExercises = [],
 }: {
   workoutId: string;
   startedAt: string;
@@ -29,6 +30,8 @@ export default function ActiveWorkoutSession({
   categories: ExerciseCategory[];
   recentIds: string[];
   weightUnit: WeightUnit;
+  /** Pre-populates the session — used when arriving via a routine's "Log All". */
+  initialExercises?: Exercise[];
 }) {
   const router = useRouter();
   const {
@@ -44,14 +47,27 @@ export default function ActiveWorkoutSession({
     isPending,
   } = useWorkoutSession(workoutId);
 
-  const [pickerOpen, setPickerOpen] = useState(true);
+  const [pickerOpen, setPickerOpen] = useState(initialExercises.length === 0);
   const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    // Runs once on mount to seed the session from a routine day. addExercise
+    // is stable (useCallback with no deps that change here), so this is
+    // intentionally not re-run when it changes identity between renders.
+    initialExercises.forEach((exercise) => addExercise(exercise));
+    // addExercise makes whichever exercise it just added "active", so
+    // after seeding the whole list, explicitly re-point at the first one
+    // rather than whichever happened to be added last.
+    if (initialExercises[0]) setActiveExerciseId(initialExercises[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const start = new Date(startedAt).getTime();
     const id = setInterval(() => setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000))), 1000);
     return () => clearInterval(id);
   }, [startedAt]);
+
 
   const active = sessionExercises.find((e) => e.exercise.id === activeExerciseId);
 
