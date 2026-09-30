@@ -283,7 +283,7 @@ export default function ShareCard(props: ShareCardProps) {
 
       {status === 'error' && (
         <p className="text-sm text-red-500">
-          Couldn't share right now — try again, or long-press the card to save it manually.
+          Couldn’t share right now — try again, or long-press the card to save it manually.
         </p>
       )}
     </div>

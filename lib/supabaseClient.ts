@@ -1,14 +1,9 @@
 /**
- * Two Supabase client factories — one for Client Components (browser),
- * one for Server Components / Route Handlers / Server Actions (server).
- * Both share the same env vars; only the cookie storage differs, per
- * @supabase/ssr's Next.js App Router integration.
- *
- * Never import createSupabaseServerClient from a Client Component
- * ('use client' file) — it depends on next/headers, which only works
- * on the server.
+ * Server-only Supabase client (Server Components, Route Handlers, Server
+ * Actions). Client Components must use lib/supabaseBrowserClient.ts —
+ * this module imports next/headers, which fails the build in client code.
  */
-import { createBrowserClient, createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -22,11 +17,6 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     'NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY are not set. ' +
       'Copy .env.example to .env.local and fill in your Supabase project values.'
   );
-}
-
-/** Use inside Client Components ('use client'). */
-export function createSupabaseBrowserClient() {
-  return createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
 /**

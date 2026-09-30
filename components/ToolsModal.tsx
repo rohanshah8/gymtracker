@@ -87,7 +87,7 @@ function PlateCalculator({ unit }: { unit: WeightUnit }) {
           )}
           {!result.exact && (
             <p className="mt-2 text-xs text-amber-400">
-              {result.remainder} {unit} per side can't be matched exactly with standard plates.
+              {result.remainder} {unit} per side can’t be matched exactly with standard plates.
             </p>
           )}
         </div>

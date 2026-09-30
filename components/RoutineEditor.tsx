@@ -117,7 +117,7 @@ export default function RoutineEditor({
 
         {days.length === 0 && (
           <p className="py-4 text-center text-sm text-neutral-500">
-            Add a training day (e.g. "Push Day A") to start building this routine.
+            Add a training day (e.g. “Push Day A”) to start building this routine.
           </p>
         )}
       </div>

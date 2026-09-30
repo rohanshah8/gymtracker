@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import type { Exercise, NewSet, PersonalRecord, WorkoutSet } from '@/lib/database.types';
 import { finishWorkoutAction } from '@/app/(app)/actions';
-import { createSupabaseBrowserClient } from '@/lib/supabaseClient';
+import { createSupabaseBrowserClient } from '@/lib/supabaseBrowserClient';
 import { getLastPerformance, logSet as insertSet, wasPersonalRecord } from '@/lib/queries';
 import type { LastPerformance } from '@/lib/queries';
 import { enqueueSet, flushQueue } from '@/lib/offlineQueue';

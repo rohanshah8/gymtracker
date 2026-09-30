@@ -17,7 +17,7 @@ export default async function RoutinesPage() {
 
       {routines.length === 0 ? (
         <p className="mb-6 py-4 text-center text-sm text-neutral-500">
-          No routines yet — create one to "Log All" a full training day in one tap.
+          No routines yet — create one to “Log All” a full training day in one tap.
         </p>
       ) : (
         <ul className="mb-6 space-y-2">

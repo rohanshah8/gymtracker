@@ -64,7 +64,7 @@ export default function ExerciseLibraryList({
       ))}
 
       {grouped.length === 0 && (
-        <p className="py-8 text-center text-sm text-neutral-500">No exercises match "{search}".</p>
+        <p className="py-8 text-center text-sm text-neutral-500">No exercises match “{search}”.</p>
       )}
 
       {showAddForm ? (
