@@ -36,6 +36,9 @@ export async function GET(request: NextRequest) {
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`);
     }
+    console.error('[auth/callback] exchangeCodeForSession failed:', error.message);
+  } else {
+    console.error('[auth/callback] no code in callback URL:', searchParams.get('error_description') ?? '(none)');
   }
 
   // Missing/invalid code — send back to login with an error flag rather

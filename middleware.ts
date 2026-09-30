@@ -6,6 +6,14 @@ import { NextResponse, type NextRequest } from 'next/server';
 const PROTECTED_PREFIXES = ['/dashboard', '/workout', '/history', '/routines', '/exercises', '/profile'];
 
 export async function middleware(request: NextRequest) {
+  // Supabase falls back to the bare Site URL when the redirect isn't allowlisted; forward the code.
+  const code = request.nextUrl.searchParams.get('code');
+  if (code && request.nextUrl.pathname !== '/auth/callback') {
+    const callbackUrl = new URL('/auth/callback', request.url);
+    callbackUrl.searchParams.set('code', code);
+    return NextResponse.redirect(callbackUrl);
+  }
+
   let response = NextResponse.next({ request: { headers: request.headers } });
 
   const supabase = createServerClient(
